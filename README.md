@@ -7,7 +7,7 @@ This should help us when we make changes or additions to the logic.
 ## How to run
 In order to run the spec you will need a prolog.
 Recommended is SWI-Prolog, which you can download and install for free.
-`brew install swipl` should do the trick.
+`brew install swi-prolog` should do the trick.
 Then you run the test suites using `make test`
 
 ## How to contribute
