@@ -4,7 +4,7 @@
 % because it does not care about the underlying data layer
 %%
 
-% a job is of the form job(UnitID, JobID, InputMaterials)
+% a job is of the form job(UnitID, JobID, BoM, Started, Ended)
 % inputmaterials is a list of ItemID-Quantity pairs
 % which is converted to BoM, a list of items (with name and quantity fields)
 job(UnitID, JobID, Job) :-
@@ -12,7 +12,7 @@ job(UnitID, JobID, Job) :-
 
 job(UnitID, JobID, InputMaterials, Job) :-
     maplist([X,Y]>>(X=Item-Q, Y=item(Item,Q)), InputMaterials, BoM),
-    Job = job(UnitID, JobID, BoM).
+    Job = job(UnitID, JobID, BoM, false, false).
 
 % TODO: only indirect consumption for now!
 % Theres indirect consumption which consumes from the generic stock of items
@@ -25,7 +25,7 @@ job(UnitID, JobID, InputMaterials, Job) :-
 % This time is used by the mapper to compute the amount consumed/produced
 % within this job context
 
-% warehouse(List) where List is a list of ItemID-Quantity pairs
+% warehouse(List) where List is a list of items with quantity
 % always exists in the state and reflects the current items 
 
 % consumeIndirect subtracts quantity from item amount in warehouse

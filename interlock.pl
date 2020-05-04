@@ -20,7 +20,7 @@ can_release_interlock(MachineName, State) :-
     get_machine(MachineName, State, Machine),
     Machine = m(Name, InputPositions, OutputPositions),
     % condition 1
-    exists(State, job(Name, _, BoM)),
+    exists(State, job(Name, _, BoM, true, false)),
     % condition 2
     forall(member(item(JM,Quantity), BoM), (
             Quantity #= 0
@@ -106,7 +106,8 @@ test(release_interlock) :-
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
     create_machine(Stacker, State, S1),
     job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
-    start_job(Job, S1, FinalState),
+    create(Job, S1, S2),
+    start_job("jobid", S2, FinalState),
     assertion(can_release_interlock("stacker", FinalState)).
 
 test(cannot_release_interlock_no_job) :-
@@ -128,7 +129,8 @@ test(cannot_release_interlock_material_mismatch) :-
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
     create_machine(Stacker, State, S1),
     job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
-    start_job(Job, S1, FinalState),
+    create(Job, S1, S2),
+    start_job("jobid", S2, FinalState),
     assertion(not(can_release_interlock("stacker", FinalState))).
 
 test(cannot_release_interlock_incorrect_output_position) :-
@@ -138,7 +140,8 @@ test(cannot_release_interlock_incorrect_output_position) :-
     load_holder_in_inputposition(ItemHolder, 1, EmptyPresser, Presser),
     create_machine(Presser, State, S1),
     job("presser", "jobid", ["ItemName"-1], Job),
-    start_job(Job, S1, FinalState),
+    create(Job, S1, S2),
+    start_job("jobid", S2, FinalState),
     assertion(not(can_release_interlock("presser", FinalState))).
     
 test(cannot_release_interlock_loaded_on_inactive) :-
@@ -150,7 +153,8 @@ test(cannot_release_interlock_loaded_on_inactive) :-
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
     create_machine(Stacker, State, S1),
     job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
-    start_job(Job, S1, FinalState),
+    create(Job, S1, S2),
+    start_job("jobid", S2, FinalState),
     assertion(not(can_release_interlock("stacker", FinalState))).
 
 :- end_tests(interlock).
@@ -181,9 +185,9 @@ test(material_interlock_test1) :-
             not(material_interlock(OP, BoM))
         ))
     )),
-    Inputs = ["PC-A"-1, "PC-B"-1],
-    job("stacker", "jobid", Inputs, Job),
-    start_job(Job, StateAfterLoad, FinalState),
+    job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
+    create(Job, StateAfterLoad, StateWithJob),
+    start_job("jobid", StateWithJob, FinalState),
     assertion(can_release_interlock("stacker", FinalState)).
 
 :- end_tests(material_interlock).
