@@ -26,7 +26,8 @@ process_result(Name, pr(Name)).
 
 % northcloud is our entire data model, the initial state
 % its just a simple collection of identities, prs, jobs etc
-northcloud([]).
+northcloud(InitialState) :-
+    InitialState = [warehouse([])].
 
 % an identity is of the from i(Name)
 identity(Name, i(Name)).
@@ -44,6 +45,7 @@ get_config(MachineName, State, Config) :-
 
 % select removes from the list State
 % since we dont care about order we can just append at the head
+% assumes that exactly one of X exists in state
 update(X, NewX, State, NewState) :-
     select(X, State, Temp),
     NewState = [NewX|Temp].

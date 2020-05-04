@@ -5,13 +5,33 @@
 %%
 
 % a job is of the form job(UnitID, JobID, InputMaterials)
-% inputmaterials, or BoM, is a list of ItemID-Quantity pairs
+% inputmaterials is a list of ItemID-Quantity pairs
+% which is converted to BoM, a list of items (with name and quantity fields)
 job(UnitID, JobID, Job) :-
     job(UnitID, JobID, [], Job).
-job(UnitID, JobID, InputMaterials, job(UnitID, JobID, InputMaterials)).
 
-% what entity in dynamics cares about consumption?
-% quantity consumed/produced is kept track of on the itemposition?
-% reported to dynamics upon unload or on load depending on consumptionstrategy?
-% how does startTime factor in exactly? to infer the actual quantity?
-% what listens to the MaterialUnloaded Event? Anything?
+job(UnitID, JobID, InputMaterials, Job) :-
+    maplist([X,Y]>>(X=Item-Q, Y=item(Item,Q)), InputMaterials, BoM),
+    Job = job(UnitID, JobID, BoM).
+
+% TODO: only indirect consumption for now!
+% Theres indirect consumption which consumes from the generic stock of items
+% and then there is consumption for a job, which consumes from the job quantity
+% On load/unload we set startTime and quantity on the position.
+% While the machine is running, the mapper updates the quantity on position based on time
+% Nothing listens to the MaterialLoaded/MaterialUnloaded Events as of yet :)
+% for 'default' consumption strategy, we set the startTime on load and start of job,
+% using the latest of the two times as our actual start time.
+% This time is used by the mapper to compute the amount consumed/produced
+% within this job context
+
+% warehouse(List) where List is a list of ItemID-Quantity pairs
+% always exists in the state and reflects the current items 
+
+% consumeIndirect subtracts quantity from item amount in warehouse
+consumeIndirect(Item, Quantity, OldState, NewState) :-
+    select(warehouse(List), OldState, TempState),
+    select(item(Item,AmountInWarehouse), List, TempList),
+    NewAmount #= AmountInWarehouse - Quantity,
+    NewWarehouse = warehouse([item(Item,NewAmount)|TempList]),
+    NewState = [NewWarehouse|TempState].

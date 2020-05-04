@@ -19,11 +19,13 @@
 % the position itself (as we do in the go code)
 load_input_material(IH, IPIndex, MachineName, OldState, NewState) :-
     get_machine(MachineName, OldState, Machine),
+    IH = itemholder(item(ItemName, Quantity)),
     can_load_holder_in_inputposition(IH, IPIndex, Machine, OldState),
     load_holder_in_inputposition(IH, IPIndex, Machine, NewMachine),
     update(Machine, NewMachine, OldState, TempState),
     % TODO: consume material, set position counter and quantity
-    request_release_interlock(MachineName, TempState, NewState).
+    consumeIndirect(ItemName, Quantity, TempState, StateAfterConsumption),
+    request_release_interlock(MachineName, StateAfterConsumption, NewState).
     % TODO: update material interlock ?
 
 % TODO: inconsistency in naming: load input mat vs output holder??
@@ -32,7 +34,7 @@ load_output_holder(IH, OPIndex, MachineName, OldState, NewState) :-
     can_load_holder_in_outputposition(IH, OPIndex, Machine, OldState),
     load_holder_in_outputposition(IH, OPIndex, Machine, NewMachine),
     update(Machine, NewMachine, OldState, TempState),
-    % TODO: start position counter and quantity
+    % TODO: default: start position counter and quantity
     request_release_interlock(MachineName, TempState, NewState).
     % TODO: update material interlock ?
 
@@ -48,7 +50,7 @@ unload_material_from_inputposition(Index, MachineName, OldState, NewState) :-
     nth1(Index, Inputs, IP),
     can_unload_holder(IP),
     unload_holder_from_inputposition(Index, Machine, NewMachine),
-    unload_material(Machine, NewMachine, OldState, NewState).
+    unload_material(MachineName, Machine, NewMachine, OldState, NewState).
 
 unload_material_from_outputposition(Index, MachineName, OldState, NewState) :-
     get_machine(MachineName, OldState, Machine),
@@ -56,9 +58,9 @@ unload_material_from_outputposition(Index, MachineName, OldState, NewState) :-
     nth1(Index, Outputs, OP),
     can_unload_holder(OP),
     unload_holder_from_outputposition(Index, Machine, NewMachine),
-    unload_material(Machine, NewMachine, OldState, NewState).
+    unload_material(MachineName, Machine, NewMachine, OldState, NewState).
 
-unload_material(OldMachine, MachineName, OldState, NewState) :-
+unload_material(MachineName, OldMachine, NewMachine, OldState, NewState) :-
     % report to dynamics, unset position counter, end process ?
     % NOTE: none of this can partially fail, so modeling errors
     % where we triggered some side-effect and then failed will

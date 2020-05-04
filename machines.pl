@@ -57,9 +57,11 @@ position_is_empty(in(empty, _)).
 position_is_empty(out(empty,_)).
 
 % itemholders hold one item/material (?)
-item_on_holder(Item, itemholder(Item)).
+item_on_holder(ItemName, Quantity, itemholder(item(ItemName, Quantity))).
 
 itemholder_is_empty(itemholder(empty)).
+
+% item is of the form item(ItemName, Quantity)
 
 % Why are these checked on the function, not on the action?
 % They do bubble up. Weird to separate action from func here
