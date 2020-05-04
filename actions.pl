@@ -38,25 +38,32 @@ load_output_holder(IH, OPIndex, MachineName, OldState, NewState) :-
 
 % Block / Unblock item ?!?
 
+% code only has unload_material because it can more easily inspect type
 % underlying call is named UnloadHolder, which is more descriptive
 % TODO: attempts to report to dynamics and unsetpositioncounter even
 % before checking conditions in fs.UnloadHolder ?
-% InOrOut is one of either 'in' or 'out' atoms
-unload_material(InOrOut, Index, MachineName, OldState, NewState) :-
+unload_material_from_inputposition(Index, MachineName, OldState, NewState) :-
     get_machine(MachineName, OldState, Machine),
-    Machine = m(MachineName, Inputs, Outputs),
-    % select itemposition IP from either inputs or outputs
-    (
-        InOrOut = in,
-        nth1(Index, Inputs, IP)
-    ;
-        InOrOut = out,
-        nth1(Index, Outputs, IP)
-    ),
-    % report to dynamics, unset position counter, end process ?
+    Machine = m(MachineName, Inputs, _),
+    nth1(Index, Inputs, IP),
     can_unload_holder(IP),
-    unload_holder(InOrOut, Index, Machine, NewMachine),
-    update(Machine, NewMachine, OldState, TempState),
+    unload_holder_from_inputposition(Index, Machine, NewMachine),
+    unload_material(Machine, NewMachine, OldState, NewState).
+
+unload_material_from_outputposition(Index, MachineName, OldState, NewState) :-
+    get_machine(MachineName, OldState, Machine),
+    Machine = m(MachineName, _, Outputs),
+    nth1(Index, Outputs, OP),
+    can_unload_holder(OP),
+    unload_holder_from_outputposition(Index, Machine, NewMachine),
+    unload_material(Machine, NewMachine, OldState, NewState).
+
+unload_material(OldMachine, MachineName, OldState, NewState) :-
+    % report to dynamics, unset position counter, end process ?
+    % NOTE: none of this can partially fail, so modeling errors
+    % where we triggered some side-effect and then failed will
+    % need some split of functions and inspection of temp state
+    update(OldMachine, NewMachine, OldState, TempState),
     % update material interlock ?
     request_set_interlock(MachineName, TempState, NewState).
 

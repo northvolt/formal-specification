@@ -122,21 +122,18 @@ can_unload_holder(Position) :-
     (Position = in(_, State) ; Position = out(_, State)),
     State = true.
 
-% InOrOut is one of either 'in' or 'out' atoms
-unload_holder(InOrOut, Index, Machine, NewMachine) :-
+unload_holder_from_inputposition(Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
-    (
-        InOrOut = in,
-        nth1(Index, Inputs, IP, Rem),
-        IP = in(_, State),
-        NewIP = in(empty, State),
-        nth1(Index, NewInputs, NewIP, Rem),
-        NewMachine = m(Name, NewInputs, Outputs)
-    ;
-        InOrOut = out,
-        nth1(Index, Outputs, OP, Rem),
-        OP = out(_, State),
-        NewOP = out(empty, State),
-        nth1(Index, NewOutputs, NewOP, Rem),
-        NewMachine = m(Name, Inputs, NewOutputs)
-    ).
+    nth1(Index, Inputs, IP, Rem),
+    IP = in(_, State),
+    NewIP = in(empty, State),
+    nth1(Index, NewInputs, NewIP, Rem),
+    NewMachine = m(Name, NewInputs, Outputs).
+
+unload_holder_from_outputposition(Index, Machine, NewMachine) :-
+    Machine = m(Name, Inputs, Outputs),
+    nth1(Index, Outputs, OP, Rem),
+    OP = out(_, State),
+    NewOP = out(empty, State),
+    nth1(Index, NewOutputs, NewOP, Rem),
+    NewMachine = m(Name, Inputs, NewOutputs).

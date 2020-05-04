@@ -4,21 +4,18 @@
 
 :- use_module(library(clpfd)).
 
+% models of part of our system. basic structure
 :- ['machines.pl'].
 :- ['events.pl'].
 :- ['actions.pl'].
 :- ['mutations.pl'].
+:- ['dynamics.pl'].
 
+% models of specific, more involved logic cases with tests
 :- ['interlock.pl'].
 
 % a process result is of the form pr(Name)
 process_result(Name, pr(Name)).
-
-% a job is of the form job(UnitID, JobID, InputMaterials)
-% inputmaterials, or BoM, is a list of ItemID-Quantity pairs
-job(UnitID, JobID, Job) :-
-    job(UnitID, JobID, [], Job).
-job(UnitID, JobID, InputMaterials, job(UnitID, JobID, InputMaterials)).
 
 %%%
 % State is a simple set of identities
