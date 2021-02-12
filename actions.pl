@@ -25,7 +25,7 @@ load_input_material(IH, IPIndex, MachineName, OldState, NewState) :-
     update(Machine, NewMachine, OldState, TempState),
     % TODO: consume material, set position counter and quantity
     consumeIndirect(ItemName, Quantity, TempState, StateAfterConsumption),
-    request_release_interlock(MachineName, StateAfterConsumption, NewState).
+    update_interlock(MachineName, StateAfterConsumption, NewState).
     % TODO: update material interlock ?
 
 % TODO: inconsistency in naming: load input mat vs output holder??
@@ -35,7 +35,7 @@ load_output_holder(IH, OPIndex, MachineName, OldState, NewState) :-
     load_holder_in_outputposition(IH, OPIndex, Machine, NewMachine),
     update(Machine, NewMachine, OldState, TempState),
     % TODO: default: start position counter and quantity
-    request_release_interlock(MachineName, TempState, NewState).
+    update_interlock(MachineName, TempState, NewState).
     % TODO: update material interlock ?
 
 % Block / Unblock item ?!?
@@ -67,7 +67,7 @@ unload_material(MachineName, OldMachine, NewMachine, OldState, NewState) :-
     % need some split of functions and inspection of temp state
     update(OldMachine, NewMachine, OldState, TempState),
     % update material interlock ?
-    request_set_interlock(MachineName, TempState, NewState).
+    update_interlock(MachineName, TempState, NewState).
 
 % Link item and holder? Happens implicit in the model so far.
 % When do we ever call this action from the app? What is the usecase?

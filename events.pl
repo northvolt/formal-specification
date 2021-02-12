@@ -3,7 +3,10 @@ event(Name, Actor, Target, e(Name, Actor, Target)).
 
 publish_event(Event, OldState, NewState) :-
     Event = e(EventName, _, _),
-    handle_event(EventName, OldState, NewState),
+    select(events(List), OldState, TempState1),
+    append(List, [Event], NewList),
+    TempState2 = [events(NewList)|TempState1],
+    handle_event(EventName, TempState2, NewState),
     *writeln(Event).
 
 % create a new sheet identity with the event grade
@@ -15,6 +18,9 @@ handle_event("sheet_cut", S, NS) :-
 handle_event("jellyroll_stacked", S, NS) :-
     create_jellyroll(S, S1),
     create_stacking_PR(S1, NS).
+
+% a process result is of the form pr(Name)
+process_result(Name, pr(Name)).
 
 % Sheets
 

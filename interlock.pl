@@ -1,27 +1,37 @@
-request_release_interlock(MachineName, OldState, NewState) :-
-    get_machine(MachineName, OldState, Machine),
+update_interlock(Name, OldState, NewState) :-
+    get_machine(Name, OldState, Machine),
     (
-        can_release_interlock(Machine, OldState)
+        check_interlock_conditions(Machine, OldState)
     ->
-        release_interlock(MachineName, OldState, NewState)
+        update(machine_config(Name, _), machine_config(Name, false), OldState, NewState)
     ;
-        % no update happens
-        NewState = OldState
+        update(machine_config(Name, _), machine_config(Name, true), OldState, NewState)
     ).
     % TODO: send interlock changed requested event
 
-% release interlock has three conditions:
-% - a job must be started for the machine
-% - all requisite job inputs must be loaded on active input positions
-%   where a requisite input is an member of the BoM with quantity > 0
-% - all active output positions must have an itemholder, which can be
-%   either empty or holding material that is on the BoM (even with quantity 0)
-can_release_interlock(MachineName, State) :-
-    get_machine(MachineName, State, Machine),
+% different machines have different conditions to check
+% each condition is permissive: if it succeeds, interlock should _not_ be set
+% this predicate succeeding means interlock should _not_ be set
+check_interlock_conditions(Machine, State) :-
+    Machine = m(Name, _, _),
+    get_interlock_conditions(Name, Conditions),
+    forall(member(C, Conditions), (
+        call(C, Machine, State)
+    )).
+
+get_interlock_conditions("presser", [job_started, mbom, output]).
+get_interlock_conditions("coater",  [job_started, mbom, output]).
+get_interlock_conditions("stacker", [job_started]).
+
+% a job must be started for the machine
+job_started(Machine, State) :-
+    exists(State, job(MachineName, _, _, true, false)).
+
+% all requisite job inputs must be loaded on active input positions
+% where a requisite input is an member of the BoM with quantity > 0
+mbom(Machine, State) :-
     Machine = m(Name, InputPositions, OutputPositions),
-    % condition 1
     exists(State, job(Name, _, BoM, true, false)),
-    % condition 2
     forall(member(item(JM,Quantity), BoM), (
             Quantity #= 0
         ;
@@ -29,8 +39,13 @@ can_release_interlock(MachineName, State) :-
             member(in(ItemHolder, true), InputPositions),
             not(itemholder_is_empty(ItemHolder)),
             item_on_holder(JM, _, ItemHolder)
-    )),
-    % condition 3
+    )).
+
+% all active output positions must have an itemholder, which can be
+% either empty or holding material that is on the BoM (even with quantity 0)
+output(Machine, State) :-
+    Machine = m(Name, InputPositions, OutputPositions),
+    exists(State, job(Name, _, BoM, true, false)),
     forall(member(OutputPosition, OutputPositions), (
         OutputPosition = out(ItemHolder, Status),
         (
@@ -51,23 +66,6 @@ can_release_interlock(MachineName, State) :-
 % check whether the item is on the bill of materials, ignoring quantities
 item_on_bom(ItemName, BoM) :-
     memberchk(item(ItemName,_), BoM).
-
-release_interlock(Name, OldState, NewState) :-
-    update(machine_config(Name, _), machine_config(Name, false), OldState, NewState).
-
-% does not have a corresponding can_set function
-% this is simply the inverse of request_release_interlock
-request_set_interlock(MachineName, OldState, NewState) :-
-    get_machine(MachineName, OldState, Machine),
-    (
-        can_release_interlock(Machine, OldState)
-    ->
-        % no update happens
-        NewState = OldState
-    ;
-        release_interlock(MachineName, OldState, NewState)
-    ).
-    % TODO: send interlock changed requested event
 
 % if a position is material interlocked, it cannot be set to active
 % the conditions depend on whether it is an input or output position
@@ -95,6 +93,8 @@ material_interlock(OP, _) :-
         not(itemholder_is_empty(IH))
     ).
 
+% calling update_interlock manually assumes proper triggers have been set up
+% these should be called from actions taken to reach the starting state
 :- begin_tests(interlock).
 
 test(release_interlock) :-
@@ -107,8 +107,9 @@ test(release_interlock) :-
     create_machine(Stacker, State, S1),
     job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, FinalState),
-    assertion(can_release_interlock("stacker", FinalState)).
+    start_job("jobid", S2, S3),
+    update_interlock("stacker", S3, FinalState),
+    assertion(not(is_interlocked("stacker", FinalState))).
 
 test(cannot_release_interlock_no_job) :-
     northcloud(State),
@@ -117,21 +118,21 @@ test(cannot_release_interlock_no_job) :-
     item_on_holder("PC-B", 1, CathodeInput),
     load_holder_in_inputposition(AnodeInput, 1, EmptyStacker, NewStacker),
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
-    create_machine(Stacker, State, FinalState),
-    assertion(not(can_release_interlock("stacker", FinalState))).
+    create_machine(Stacker, State, S1),
+    update_interlock("stacker", S1, FinalState),
+    assertion(is_interlocked("stacker", FinalState)).
 
 test(cannot_release_interlock_material_mismatch) :-
     northcloud(State),
-    machine("stacker", EmptyStacker),
+    machine("presser", EmptyPresser),
     item_on_holder("PC-A", 1, AnodeInput),
-    item_on_holder("PC-C", 1, CathodeInput),
-    load_holder_in_inputposition(AnodeInput, 1, EmptyStacker, NewStacker),
-    load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
-    create_machine(Stacker, State, S1),
-    job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
+    load_holder_in_inputposition(AnodeInput, 1, EmptyPresser, NewPresser),
+    create_machine(NewPresser, State, S1),
+    job("presser", "jobid", ["PC-B"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, FinalState),
-    assertion(not(can_release_interlock("stacker", FinalState))).
+    start_job("jobid", S2, S3),
+    update_interlock("presser", S3, FinalState),
+    assertion(is_interlocked("presser", FinalState)).
 
 test(cannot_release_interlock_incorrect_output_position) :-
     northcloud(State),
@@ -141,21 +142,21 @@ test(cannot_release_interlock_incorrect_output_position) :-
     create_machine(Presser, State, S1),
     job("presser", "jobid", ["ItemName"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, FinalState),
-    assertion(not(can_release_interlock("presser", FinalState))).
+    start_job("jobid", S2, S3),
+    update_interlock("presser", S3, FinalState),
+    assertion(is_interlocked("presser", FinalState)).
     
 test(cannot_release_interlock_loaded_on_inactive) :-
     northcloud(State),
-    machine("stacker", EmptyStacker),
+    machine("notcher", EmptyNotcher),
     item_on_holder("PC-A", 1, AnodeInput),
-    item_on_holder("PC-B", 1, CathodeInput),
-    load_holder_in_inputposition(AnodeInput, 2, EmptyStacker, NewStacker),
-    load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
-    create_machine(Stacker, State, S1),
-    job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
+    load_holder_in_inputposition(AnodeInput, 2, EmptyNotcher, NewNotcher),
+    create_machine(NewNotcher, State, S1),
+    job("notcher", "jobid", ["PC-A"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, FinalState),
-    assertion(not(can_release_interlock("stacker", FinalState))).
+    start_job("jobid", S2, S3),
+    update_interlock("notcher", S3, FinalState),
+    assertion(is_interlocked("notcher", FinalState)).
 
 :- end_tests(interlock).
 
@@ -188,6 +189,6 @@ test(material_interlock_test1) :-
     job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
     create(Job, StateAfterLoad, StateWithJob),
     start_job("jobid", StateWithJob, FinalState),
-    assertion(can_release_interlock("stacker", FinalState)).
+    assertion(not(is_interlocked("stacker", FinalState))).
 
 :- end_tests(material_interlock).

@@ -14,9 +14,6 @@
 % models of specific, more involved logic cases with tests
 :- ['interlock.pl'].
 
-% a process result is of the form pr(Name)
-process_result(Name, pr(Name)).
-
 %%%
 % State is a simple set of identities
 % We cannot do actual changes to state in Prolog,
@@ -26,8 +23,10 @@ process_result(Name, pr(Name)).
 
 % northcloud is our entire data model, the initial state
 % its just a simple collection of identities, prs, jobs etc
+% some default groups of data are initialised to make this a little simpler
+% warehouse is used in dynamics.pl and events in events.pl
 northcloud(InitialState) :-
-    InitialState = [warehouse([])].
+    InitialState = [warehouse([]), events([])].
 
 % an identity is of the from i(Name)
 identity(Name, i(Name)).

@@ -24,7 +24,7 @@ start_job(JobID, OldState, NewState) :-
     JobStarted = job(UnitID, JobID, BoM, true, false),
     update(JobNotStarted, JobStarted, OldState, TempState),
     % TODO: UnitID = MachineName ?
-    request_release_interlock(UnitID, TempState, NewState).
+    update_interlock(UnitID, TempState, NewState).
     % TODO: update material interlock ?
 
 % TODO: looks like this condition does not exist in code: only one job with this id!
@@ -38,7 +38,7 @@ end_job(JobID, OldState, NewState) :-
     JobEnded = job(UnitID, JobID, BoM, true, true),
     update(JobStarted, JobEnded, OldState, TempState),
     % TODO: UnitID = MachineName ?
-    request_set_interlock(UnitID, TempState, NewState).
+    update_interlock(UnitID, TempState, NewState).
     % TODO: update material interlock ?
     
 :- begin_tests(job_mutations).

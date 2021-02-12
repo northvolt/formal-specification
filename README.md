@@ -17,3 +17,8 @@ Run it: your test either passes or fails.
 If it passes, you've just proven that your case is covered by the logic.
 If it does not, you've found a gap in the model where we need to improve.
 You can either fix it yourself or raise the question: what should happen in this case?
+
+## Caveats:
+Only reasons about synchronous logic.
+For debugging asynchronous problems, something like TLA+ would be more applicable.
+Does not deal with performance at all, just logical consistency.

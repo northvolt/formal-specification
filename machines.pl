@@ -42,8 +42,13 @@ machine("stacker", m("stacker", [Anode1, Anode2, Cathode1, Cathode2], [])) :-
 % formation & aging
 
 % machine_config is of the form machine_config(Name, Interlocked)
+% machines start interlocked by default
 config(Name, Config) :-
-    Config = machine_config(Name, false).
+    Config = machine_config(Name, true).
+
+is_interlocked(Name, State) :-
+    get_config(Name, State, Config),
+    Config = machine_config(Name, true).
 
 % TODO: note that in our model we have split inputposition from inputpositionstate
 % state is state as reported by mapper at that time, inputposition is updated constantly
@@ -121,8 +126,8 @@ load_holder_in_outputposition(IH, Index, Machine, NewMachine) :-
 % TODO: machine PackML state
 can_unload_holder(Position) :-
     not(position_is_empty(Position)),
-    (Position = in(_, State) ; Position = out(_, State)),
-    State = true.
+    (Position = in(_, Active) ; Position = out(_, Active)),
+    Active = false.
 
 unload_holder_from_inputposition(Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
