@@ -206,8 +206,9 @@ test(material_interlock_test1) :-
             not(material_interlock(OP, BoM))
         ))
     )),
-    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
-    create(Job, StateAfterLoad, StateWithJob),
+    create_production_order("poid", [
+        "stacker"-"jobid"-["PC-A"-1, "PC-B"-1]
+        ], StateAfterLoad, StateWithJob),
     start_job("jobid", StateWithJob, FinalState),
     assertion(not(is_interlocked("stacker", FinalState))).
 

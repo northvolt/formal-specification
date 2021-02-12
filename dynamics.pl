@@ -9,6 +9,23 @@ production_order(ProdOrderID, Jobs, ProdOrder) :-
     string(ProdOrderID), is_list(Jobs),
     ProdOrder = production_order(ProdOrderID, Jobs).
 
+% convenience predicate creating the production order and the jobs it contains
+% Jobs is a list of [UnitID-JobID-BoM] pairs, where BoM is optional
+create_production_order(ProdOrderID, Jobs, OldState, NewState) :-
+    foldl(create_job(ProdOrderID), Jobs, OldState, TempState),
+    include([X]>>(X=(job(_, _, ProdOrderID, _, _))), TempState, CreatedJobs),
+    maplist([J, ID]>>(J=job(_, ID, _, _, _)), CreatedJobs, JobIDs),
+    production_order(ProdOrderID, JobIDs, ProdOrder),
+    create(ProdOrder, TempState, NewState).
+
+create_job(ProdOrderID, UnitID-JobID, OldState, NewState) :-
+    job(UnitID, JobID, ProdOrderID, Job),
+    create(Job, OldState, NewState).
+
+create_job(ProdOrderID, UnitID-JobID-BoM, OldState, NewState) :-
+    job(UnitID, JobID, ProdOrderID, BoM, Job),
+    create(Job, OldState, NewState).
+
 % a job is of the form job(UnitID, JobID, BoM, Status)
 % inputmaterials is a list of ItemID-Quantity pairs
 % which is converted to BoM, a list of items (with name and quantity fields)
@@ -17,6 +34,7 @@ job(UnitID, JobID, ProdOrderID, Job) :-
     job(UnitID, JobID, ProdOrderID, [], Job).
 
 job(UnitID, JobID, ProdOrderID, InputMaterials, Job) :-
+    string(UnitID), string(JobID), string(ProdOrderID), is_list(InputMaterials),
     maplist([X,Y]>>(X=Item-Q, Y=item(Item,Q)), InputMaterials, BoM),
     Job = job(UnitID, JobID, ProdOrderID, BoM, released).
 
@@ -126,7 +144,7 @@ test(start_job_after_ending) :-
     create(Job, StartState, StateJobCreated),
     start_job("jobid", StateJobCreated, StateJobStarted),
     end_job("jobid", StateJobStarted, StateJobEnded),
-    not(can_start_job("jobid", StateJobEnded)).
+    assertion(not(can_start_job("jobid", StateJobEnded))).
 
 :- end_tests(job_mutations).
 
@@ -138,17 +156,17 @@ test(auto_start_job) :-
     create_machine(Stacker, EmptyState, S1),
     machine("hotpress", HotPress),
     create_machine(HotPress, S1, StartState),
-    job("stacker", "jobid1", "poid", ["PC-A"-1, "PC-B"-1], StackerJob),
-    job("hotpress", "jobid2", "poid", HotPressJob),
-    create(StackerJob, StartState, StateJob1Created),
-    create(HotPressJob, StateJob1Created, StateJob2Created),
+    create_production_order("poid", [
+        "stacker"-"jobid1"-["PC-A"-1, "PC-B"-1],
+        "hotpress"-"jobid2"
+        ], StartState, StatePOCreated),
     % start the stacker job
-    start_job("jobid1", StateJob2Created, StateJobStarted),
+    start_job("jobid1", StatePOCreated, StateJobStarted),
     event("jellyroll_stacked", "stacker", "jrid", StackedEvent),
     publish_event(StackedEvent, StateJobStarted, StateStacked),
     event("jellyroll_pressed", "hotpress", "jrid", PressedEvent),
     publish_event(PressedEvent, StateStacked, StatePressed),
-    HotPressJobStarted = job("hotpress", "jobid2", "poid", _, started),
-    exists(StatePressed, HotPressJobStarted).
+    HotPressJob = job("hotpress", "jobid2", "poid", _, started),
+    assertion(exists(StatePressed, HotPressJob)).
 
 :- end_tests(cell_assembly).
