@@ -22,6 +22,7 @@ machine("coater", m("coater", [Foil1, Foil2, Slurry], [CoatedFoil1, CoatedFoil2]
     outputposition(empty, false, CoatedFoil2).
 
 % machine specific predicates indicating a change on PLC level
+% switches the active input position
 winder_rotated(UnitID, OldState, NewState) :-
     get_machine(UnitID, OldState, Coater),
     Coater = m("coater", [Foil1, Foil2, Slurry], OutputPositions),
@@ -52,9 +53,24 @@ machine("stacker", m("stacker", [Anode1, Anode2, Cathode1, Cathode2], [])) :-
     inputposition(empty, false, Cathode2).
 
 
-% cell assembly
-%
+% cell assembly after stacker:
+% machines get input automatically and output to the next machine
+% there are positions for things like tape, but we ignore those for now
+
+machine("hotpress", m("hotpress", [], [])).
+machine("tabwelding", m("tabwelding", [], [])).
+machine("filmwrapping", m("filmwrapping", [], [])).
+machine("celltocaninsertion", m("celltocaninsertion", [], [])).
+machine("cantolidwelding", m("cantolidwelding", [], [])).
+machine("xray", m("xray", [], [])).
+machine("heliumleaktest", m("heliumleaktest", [], [])).
+
 % formation & aging
+% similarly for formation & aging
+machine("electrolytefilling", m("electrolytefilling", [], [])).
+machine("degasandsealing", m("degasandsealing", [], [])).
+machine("formationaging", m("formationaging", [], [])).
+machine("wrappingfinalinspection", m("wrappingfinalinspection", [], [])).
 
 % machine_config is of the form machine_config(Name, Interlocked)
 % machines start interlocked by default

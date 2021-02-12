@@ -28,7 +28,7 @@ northcloud(InitialState) :-
     InitialState = [warehouse([]), events([])].
 
 % an identity is of the from i(Name)
-identity(Name, i(Name)).
+identity(Name, Type, i(Name, Type)).
 
 % create adds the identity/pr/job to our data model
 create(X, State, [X|State]).
@@ -40,6 +40,9 @@ get_machine(MachineName, State, Machine) :-
 get_config(MachineName, State, Config) :-
     Config = machine_config(MachineName, _),
     memberchk(Config, State).
+get_job(JobID, State, Job) :-
+    Job = job(_, JobID _, _, _),
+    memberchk(Job, State).
 
 % select removes from the list State
 % since we dont care about order we can just append at the head
@@ -49,4 +52,8 @@ update(X, NewX, State, NewState) :-
     NewState = [NewX|Temp].
 
 exists(State, Identity) :-
+    memberchk(Identity, State).
+
+find(Name, State, Identity) :-
+    Identity = i(Name, _),
     memberchk(Identity, State).

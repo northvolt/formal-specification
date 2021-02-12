@@ -83,6 +83,10 @@ end_job(JobID, OldState, NewState) :-
     % TODO: UnitID = MachineName ?
     update_interlock(UnitID, TempState, NewState).
     % TODO: update material interlock ?
+
+get_active_job(UnitID, State, Job) :-
+    Job = job(UnitID, _, _, _, started),
+    exists(State, Job).
     
 :- begin_tests(job_mutations).
 
@@ -97,3 +101,21 @@ test(start_job_after_ending) :-
     not(can_start_job("jobid", StateJobEnded)).
 
 :- end_tests(job_mutations).
+
+:- begin_tests(cell_assembly).
+
+test(auto_start_job) :-
+    northcloud(EmptyState),
+    machine("stacker", Stacker),
+    create_machine(Stacker, EmptyState, StartState),
+    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
+    create(Job, StartState, StateJobCreated),
+    start_job("jobid", StateJobCreated, StateJobStarted),
+    event("jellyroll_stacked", "stacker", "jrid", StackedEvent),
+    publish_event(StackedEvent, StateJobStarted, StateStacked),
+    event("jellyroll_pressed", "hotpress", "jrid", PressedEvent),
+    publish_event(PressedEvent, StateStacked, StatePressed),
+    HotPressJob = job("hotpress", _, "poid", _, started),
+    exists(StatePressed, HotPressJob).
+
+:- end_tests(cell_assembly).

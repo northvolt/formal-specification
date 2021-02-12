@@ -161,9 +161,9 @@ test(cannot_release_interlock_loaded_on_inactive) :-
 
 :- end_tests(interlock).
 
-:- begin_tests(stacker_interlock).
+:- begin_tests(coater_interlock).
 
-test(release_interlock) :-
+test(winder_rotated) :-
     northcloud(EmptyState),
     update(warehouse(_), warehouse([item("PC-A",42), item("PC-B",42)]), EmptyState, State),
     machine("coater", EmptyCoater),
@@ -178,7 +178,7 @@ test(release_interlock) :-
     winder_rotated("coater", S4, FinalState),
     assertion(not(is_interlocked("stacker", FinalState))).
 
-:- end_tests(stacker_interlock).
+:- end_tests(coater_interlock).
 
 :- begin_tests(material_interlock).
 
