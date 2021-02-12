@@ -8,7 +8,6 @@
 :- ['machines.pl'].
 :- ['events.pl'].
 :- ['actions.pl'].
-:- ['mutations.pl'].
 :- ['dynamics.pl'].
 
 % models of specific, more involved logic cases with tests
@@ -46,7 +45,7 @@ get_config(MachineName, State, Config) :-
 % since we dont care about order we can just append at the head
 % assumes that exactly one of X exists in state
 update(X, NewX, State, NewState) :-
-    select(X, State, Temp),
+    selectchk(X, State, Temp),
     NewState = [NewX|Temp].
 
 exists(State, Identity) :-

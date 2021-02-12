@@ -1,5 +1,7 @@
 % a machine is of the form m(Name, InputPositions, OutputPositions)
 % A machine is known as a FactoryUnit in the model ?
+% For now, UnitID and machine Type are equivalent. Will have to change at some point
+:- discontiguous machine/2.
 
 % when we create a machine, make sure to create config for it too
 create_machine(Machine, OldState, NewState) :-
@@ -19,6 +21,18 @@ machine("coater", m("coater", [Foil1, Foil2, Slurry], [CoatedFoil1, CoatedFoil2]
     outputposition(empty, true, CoatedFoil1),
     outputposition(empty, false, CoatedFoil2).
 
+% machine specific predicates indicating a change on PLC level
+winder_rotated(UnitID, OldState, NewState) :-
+    get_machine(UnitID, OldState, Coater),
+    Coater = m("coater", [Foil1, Foil2, Slurry], OutputPositions),
+    Foil1 = iip(Item1, State1),
+    Foil2 = iip(Item2, State2),
+    NewFoil1 = iip(Item1, State2),
+    NewFoil2 = iip(Item2, State1),
+    NewCoater = m("coater", [NewFoil1, NewFoil2, Slurry], OutputPositions),
+    update(Coater, NewCoater, OldState, TempState),
+    update_interlock(UnitID, TempState, NewState).
+
 machine("presser", m("presser", [JumboRoll], [PressedJumboRoll])) :-
     inputposition(empty, true, JumboRoll),
     outputposition(empty, true, PressedJumboRoll).
@@ -37,6 +51,7 @@ machine("stacker", m("stacker", [Anode1, Anode2, Cathode1, Cathode2], [])) :-
     inputposition(empty, true, Cathode1),
     inputposition(empty, false, Cathode2).
 
+
 % cell assembly
 %
 % formation & aging
@@ -54,12 +69,12 @@ is_interlocked(Name, State) :-
 % state is state as reported by mapper at that time, inputposition is updated constantly
 % NOTE how empty positions and empty itemholders are indicated using 'empty' atom
 % an inputposition is of the form in(ItemHolder, Active)
-inputposition(ItemHolder, Boolean, in(ItemHolder, Boolean)).
+inputposition(ItemHolder, Boolean, iip(ItemHolder, Boolean)).
 % an outputposition is of the form out(ItemHolder, Active)
-outputposition(ItemHolder, Boolean, out(ItemHolder, Boolean)).
+outputposition(ItemHolder, Boolean, iop(ItemHolder, Boolean)).
 
-position_is_empty(in(empty, _)).
-position_is_empty(out(empty,_)).
+position_is_empty(iip(empty, _)).
+position_is_empty(iop(empty,_)).
 
 % itemholders hold one item/material (?)
 item_on_holder(ItemName, Quantity, itemholder(item(ItemName, Quantity))).
@@ -93,8 +108,8 @@ load_holder_in_inputposition(IH, Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
     nth1(Index, Inputs, IP, Rem),
     position_is_empty(IP),
-    IP = in(_, State),
-    NewIP = in(IH, State),
+    IP = iip(_, State),
+    NewIP = iip(IH, State),
     nth1(Index, NewInputs, NewIP, Rem),
     NewMachine = m(Name, NewInputs, Outputs).
 
@@ -115,8 +130,8 @@ load_holder_in_outputposition(IH, Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
     nth1(Index, Outputs, OP, Rem),
     position_is_empty(OP),
-    OP = out(_, State),
-    NewOP = out(IH, State),
+    OP = iop(_, State),
+    NewOP = iop(IH, State),
     nth1(Index, NewOutputs, NewOP, Rem),
     NewMachine = m(Name, Inputs, NewOutputs).
 
@@ -126,21 +141,21 @@ load_holder_in_outputposition(IH, Index, Machine, NewMachine) :-
 % TODO: machine PackML state
 can_unload_holder(Position) :-
     not(position_is_empty(Position)),
-    (Position = in(_, Active) ; Position = out(_, Active)),
+    (Position = iip(_, Active) ; Position = iop(_, Active)),
     Active = false.
 
 unload_holder_from_inputposition(Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
     nth1(Index, Inputs, IP, Rem),
-    IP = in(_, State),
-    NewIP = in(empty, State),
+    IP = iip(_, State),
+    NewIP = iip(empty, State),
     nth1(Index, NewInputs, NewIP, Rem),
     NewMachine = m(Name, NewInputs, Outputs).
 
 unload_holder_from_outputposition(Index, Machine, NewMachine) :-
     Machine = m(Name, Inputs, Outputs),
     nth1(Index, Outputs, OP, Rem),
-    OP = out(_, State),
-    NewOP = out(empty, State),
+    OP = iop(_, State),
+    NewOP = iop(empty, State),
     nth1(Index, NewOutputs, NewOP, Rem),
     NewMachine = m(Name, Inputs, NewOutputs).

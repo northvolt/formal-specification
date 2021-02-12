@@ -3,7 +3,7 @@ event(Name, Actor, Target, e(Name, Actor, Target)).
 
 publish_event(Event, OldState, NewState) :-
     Event = e(EventName, _, _),
-    select(events(List), OldState, TempState1),
+    selectchk(events(List), OldState, TempState1),
     append(List, [Event], NewList),
     TempState2 = [events(NewList)|TempState1],
     handle_event(EventName, TempState2, NewState),
@@ -42,7 +42,7 @@ create_stacking_PR(OldState, NewState) :-
     process_result("stacking", PR),
     create(PR, OldState, NewState).
 
-:- begin_tests(stacking).
+:- begin_tests(stacking_events).
 
 % example test, heavily annotated
 test(sheetcut) :-
@@ -64,39 +64,5 @@ test(jellyrollstacked) :-
     assertion(exists(FinalState, i("jellyroll"))),
     assertion(exists(FinalState, pr("stacking"))).
 
-% copy of integration test for stacking
-/*
-test(wuxilead) :-
-    northcloud(State),
-    % get the definition of the stacker machine and add it to known state
-    machine("stacker", Stacker),
-    create(Stacker, State, S1),
-    job("stacker", "jobid", Job),
-    start_job(Job, S1, S2),
-    % prepare stacking machine, meaning:
-    %% for both anode and cathode, create an item and itemholder
-    %% and load them both as input materials on the stacker
-    item_on_holder("PC-A", AnodeInput),
-    item_on_holder("PC-B", CathodeInput),
-    % TODO: in our model this loading of itemholder into position
-    % is an action called LoadInputMaterial that should be tested
-    Stacker = m(_, InputPositions, _),
-    InputPositions = [in(AnodeInput, true), _, in(CathodeInput, true), _],
-    % publish sheet_cut events
-    % TODO: publish a whole lot of them (see integration test)
-    event("sheet_cut", "stacker", "sheetid", SheetEvent),
-    publish_event(SheetEvent, S2, S3),
-    % TODO: verify all sheets and sheet PRs have been created
-    % publish two jellyroll_stacked events
-    % TODO: actually publish 2 instead of just the 1
-    event("jellyroll_stacked", "stacker", "jrid", JREvent),
-    publish_event(JREvent, S3, S4),
-    % TODO: verify two jellyroll identities and corresponding PRs have been created
-    % end job
-    end_job(Job, S4, FinalState),
-    % TODO final assertions
-    assertion(exists(FinalState, i("jellyroll"))).
-*/
-    
-:- end_tests(stacking).
+:- end_tests(stacking_events).
 

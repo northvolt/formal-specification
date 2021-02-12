@@ -25,13 +25,14 @@ get_interlock_conditions("stacker", [job_started]).
 
 % a job must be started for the machine
 job_started(Machine, State) :-
-    exists(State, job(MachineName, _, _, true, false)).
+    Machine = m(Name, _, _),
+    exists(State, job(Name, _, _, _, started)).
 
 % all requisite job inputs must be loaded on active input positions
 % where a requisite input is an member of the BoM with quantity > 0
 mbom(Machine, State) :-
-    Machine = m(Name, InputPositions, OutputPositions),
-    exists(State, job(Name, _, BoM, true, false)),
+    Machine = m(Name, InputPositions, _),
+    exists(State, job(Name, _, _, BoM, started)),
     forall(member(item(JM,Quantity), BoM), (
             Quantity #= 0
         ;
@@ -44,8 +45,8 @@ mbom(Machine, State) :-
 % all active output positions must have an itemholder, which can be
 % either empty or holding material that is on the BoM (even with quantity 0)
 output(Machine, State) :-
-    Machine = m(Name, InputPositions, OutputPositions),
-    exists(State, job(Name, _, BoM, true, false)),
+    Machine = m(Name, _, OutputPositions),
+    exists(State, job(Name, _, _, BoM, started)),
     forall(member(OutputPosition, OutputPositions), (
         OutputPosition = out(ItemHolder, Status),
         (
@@ -105,7 +106,7 @@ test(release_interlock) :-
     load_holder_in_inputposition(AnodeInput, 1, EmptyStacker, NewStacker),
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
     create_machine(Stacker, State, S1),
-    job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
+    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
     create(Job, S1, S2),
     start_job("jobid", S2, S3),
     update_interlock("stacker", S3, FinalState),
@@ -128,7 +129,7 @@ test(cannot_release_interlock_material_mismatch) :-
     item_on_holder("PC-A", 1, AnodeInput),
     load_holder_in_inputposition(AnodeInput, 1, EmptyPresser, NewPresser),
     create_machine(NewPresser, State, S1),
-    job("presser", "jobid", ["PC-B"-1], Job),
+    job("presser", "jobid", "poid", ["PC-B"-1], Job),
     create(Job, S1, S2),
     start_job("jobid", S2, S3),
     update_interlock("presser", S3, FinalState),
@@ -140,7 +141,7 @@ test(cannot_release_interlock_incorrect_output_position) :-
     item_on_holder("ItemName", 1, ItemHolder),
     load_holder_in_inputposition(ItemHolder, 1, EmptyPresser, Presser),
     create_machine(Presser, State, S1),
-    job("presser", "jobid", ["ItemName"-1], Job),
+    job("presser", "jobid", "poid", ["ItemName"-1], Job),
     create(Job, S1, S2),
     start_job("jobid", S2, S3),
     update_interlock("presser", S3, FinalState),
@@ -152,13 +153,32 @@ test(cannot_release_interlock_loaded_on_inactive) :-
     item_on_holder("PC-A", 1, AnodeInput),
     load_holder_in_inputposition(AnodeInput, 2, EmptyNotcher, NewNotcher),
     create_machine(NewNotcher, State, S1),
-    job("notcher", "jobid", ["PC-A"-1], Job),
+    job("notcher", "jobid", "poid", ["PC-A"-1], Job),
     create(Job, S1, S2),
     start_job("jobid", S2, S3),
     update_interlock("notcher", S3, FinalState),
     assertion(is_interlocked("notcher", FinalState)).
 
 :- end_tests(interlock).
+
+:- begin_tests(stacker_interlock).
+
+test(release_interlock) :-
+    northcloud(EmptyState),
+    update(warehouse(_), warehouse([item("PC-A",42), item("PC-B",42)]), EmptyState, State),
+    machine("coater", EmptyCoater),
+    create_machine(EmptyCoater, State, S1),
+    item_on_holder("PC-A", 1, Input),
+    % load on the inactive position
+    load_input_material(Input, 2, "coater", S1, S2),
+    job("coater", "jobid", "poid", ["PC-A"-1], Job),
+    create(Job, S2, S3),
+    start_job("jobid", S3, S4),
+    % PLC switches active position
+    winder_rotated("coater", S4, FinalState),
+    assertion(not(is_interlocked("stacker", FinalState))).
+
+:- end_tests(stacker_interlock).
 
 :- begin_tests(material_interlock).
 
@@ -186,7 +206,7 @@ test(material_interlock_test1) :-
             not(material_interlock(OP, BoM))
         ))
     )),
-    job("stacker", "jobid", ["PC-A"-1, "PC-B"-1], Job),
+    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
     create(Job, StateAfterLoad, StateWithJob),
     start_job("jobid", StateWithJob, FinalState),
     assertion(not(is_interlocked("stacker", FinalState))).

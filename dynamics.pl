@@ -4,15 +4,25 @@
 % because it does not care about the underlying data layer
 %%
 
-% a job is of the form job(UnitID, JobID, BoM, Started, Ended)
+% a productionorder is of the form prodorder(ProdOrderID, [JobIDs])
+production_order(ProdOrderID, Jobs, ProdOrder) :-
+    string(ProdOrderID), is_list(Jobs),
+    ProdOrder = production_order(ProdOrderID, Jobs).
+
+% a job is of the form job(UnitID, JobID, BoM, Status)
 % inputmaterials is a list of ItemID-Quantity pairs
 % which is converted to BoM, a list of items (with name and quantity fields)
-job(UnitID, JobID, Job) :-
-    job(UnitID, JobID, [], Job).
+job(UnitID, JobID, ProdOrderID, Job) :-
+    string(UnitID), string(JobID), string(ProdOrderID),
+    job(UnitID, JobID, ProdOrderID, [], Job).
 
-job(UnitID, JobID, InputMaterials, Job) :-
+job(UnitID, JobID, ProdOrderID, InputMaterials, Job) :-
     maplist([X,Y]>>(X=Item-Q, Y=item(Item,Q)), InputMaterials, BoM),
-    Job = job(UnitID, JobID, BoM, false, false).
+    Job = job(UnitID, JobID, ProdOrderID, BoM, released).
+
+job_status(released).
+job_status(started).
+job_status(ended).
 
 % TODO: only indirect consumption for now!
 % Theres indirect consumption which consumes from the generic stock of items
@@ -35,3 +45,55 @@ consumeIndirect(Item, Quantity, OldState, NewState) :-
     NewAmount #= AmountInWarehouse - Quantity,
     NewWarehouse = warehouse([item(Item,NewAmount)|TempList]),
     NewState = [NewWarehouse|TempState].
+
+% MUTATIONS related to Dynamics D365
+% TODO: code needs JobID AND UnitID because we cant go from jobID to unitID in dynamics rn
+% This makes absolutely no sense and leads to horrible code
+% It also means that right now, we need to verify that JobID and UnitID are in sync in the call
+
+% TODO: looks like this condition does not exist in code: only one job with this id!
+can_start_job(JobID, OldState) :-
+    JobNotStarted = job(UnitID, JobID, _, _, released),
+    exists(OldState, JobNotStarted),
+    % condition: only one job can be active for a machine at a time
+    % active means the job is started but not ended
+    not(exists(OldState, job(UnitID, _, _, _, started))).
+
+% job should already exist, and is simply updated
+% jobs are created when product order that contains them is created!
+start_job(JobID, OldState, NewState) :-
+    can_start_job(JobID, OldState),
+    JobNotStarted = job(UnitID, JobID, ProdOrderID, BoM, released),
+    JobStarted = job(UnitID, JobID, ProdOrderID, BoM, started),
+    update(JobNotStarted, JobStarted, OldState, TempState),
+    % TODO: UnitID = MachineName ?
+    update_interlock(UnitID, TempState, NewState).
+    % TODO: update material interlock ?
+
+% TODO: looks like this condition does not exist in code: only one job with this id!
+can_end_job(JobID, OldState) :-
+    JobStarted = job(_, JobID, _, _, started),
+    exists(OldState, JobStarted).
+
+end_job(JobID, OldState, NewState) :-
+    can_end_job(JobID, OldState),
+    JobStarted = job(UnitID, JobID, ProdOrderID, BoM, started),
+    JobEnded = job(UnitID, JobID, ProdOrderID, BoM, ended),
+    update(JobStarted, JobEnded, OldState, TempState),
+    % TODO: UnitID = MachineName ?
+    update_interlock(UnitID, TempState, NewState).
+    % TODO: update material interlock ?
+    
+:- begin_tests(job_mutations).
+
+test(start_job_after_ending) :-
+    northcloud(EmptyState),
+    machine("stacker", Stacker),
+    create_machine(Stacker, EmptyState, StartState),
+    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
+    create(Job, StartState, StateJobCreated),
+    start_job("jobid", StateJobCreated, StateJobStarted),
+    end_job("jobid", StateJobStarted, StateJobEnded),
+    not(can_start_job("jobid", StateJobEnded)).
+
+:- end_tests(job_mutations).
