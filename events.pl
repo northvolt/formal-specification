@@ -19,7 +19,7 @@ handle_event(e("jellyroll_stacked", _, Target), S, NS) :-
     create_stacking_PR(S1, NS).
 
 handle_event(e("jellyroll_pressed", _, Target), OldState, NewState) :-
-    find(Target, OldState, Identity),
+    find(Target, OldState, _),
     create_jr_pressed_PR(OldState, TempState),
     auto_start_or_end("hotpress", Target, TempState, NewState).
 

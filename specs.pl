@@ -41,7 +41,7 @@ get_config(MachineName, State, Config) :-
     Config = machine_config(MachineName, _),
     memberchk(Config, State).
 get_job(JobID, State, Job) :-
-    Job = job(_, JobID _, _, _),
+    Job = job(_, JobID, _, _, _),
     memberchk(Job, State).
 
 % select removes from the list State

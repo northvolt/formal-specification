@@ -87,7 +87,35 @@ end_job(JobID, OldState, NewState) :-
 get_active_job(UnitID, State, Job) :-
     Job = job(UnitID, _, _, _, started),
     exists(State, Job).
-    
+
+auto_start_or_end(UnitID, _Target, OldState, NewState) :-
+    % TODO: get poid from target
+    POID = "poid",
+    Job = job(UnitID, _, POID, _, Status),
+    exists(OldState, Job),
+    (
+        Status = released,
+        auto_start_job(UnitID, Job, OldState, NewState)
+    ;
+        Status = started,
+        % todo check if target is last in job, then end it
+        OldState = NewState
+    ).
+
+auto_start_job(UnitID, Job, OldState, NewState) :-
+    (
+        get_active_job(UnitID, OldState, CurrentJob),
+        Job \= CurrentJob
+    ->
+        CurrentJob = job(_, CJobID, _, _, _),
+        end_job(CJobID, OldState, TempState)
+    ;
+        % no changes need to be made
+        OldState = TempState
+    ),
+    Job = job(_, JobID, _, _, _),
+    start_job(JobID, TempState, NewState).
+
 :- begin_tests(job_mutations).
 
 test(start_job_after_ending) :-
@@ -107,15 +135,20 @@ test(start_job_after_ending) :-
 test(auto_start_job) :-
     northcloud(EmptyState),
     machine("stacker", Stacker),
-    create_machine(Stacker, EmptyState, StartState),
-    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
-    create(Job, StartState, StateJobCreated),
-    start_job("jobid", StateJobCreated, StateJobStarted),
+    create_machine(Stacker, EmptyState, S1),
+    machine("hotpress", HotPress),
+    create_machine(HotPress, S1, StartState),
+    job("stacker", "jobid1", "poid", ["PC-A"-1, "PC-B"-1], StackerJob),
+    job("hotpress", "jobid2", "poid", HotPressJob),
+    create(StackerJob, StartState, StateJob1Created),
+    create(HotPressJob, StateJob1Created, StateJob2Created),
+    % start the stacker job
+    start_job("jobid1", StateJob2Created, StateJobStarted),
     event("jellyroll_stacked", "stacker", "jrid", StackedEvent),
     publish_event(StackedEvent, StateJobStarted, StateStacked),
     event("jellyroll_pressed", "hotpress", "jrid", PressedEvent),
     publish_event(PressedEvent, StateStacked, StatePressed),
-    HotPressJob = job("hotpress", _, "poid", _, started),
-    exists(StatePressed, HotPressJob).
+    HotPressJobStarted = job("hotpress", "jobid2", "poid", _, started),
+    exists(StatePressed, HotPressJobStarted).
 
 :- end_tests(cell_assembly).
