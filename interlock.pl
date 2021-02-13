@@ -182,21 +182,34 @@ test(winder_rotated) :-
 
 :- begin_tests(material_interlock).
 
-test(material_interlock_test1) :-
-    northcloud(EmptyState),
-    update(warehouse(_), warehouse([item("PC-A",42), item("PC-B",42)]), EmptyState, State),
+% attempting to clean up and standardize test format
+% first step towards writing tests in a DSL ?
+test(material_interlock_test2) :-
+    % init, create entities to reason about
     machine("stacker", EmptyStacker),
-    create_machine(EmptyStacker, State, TempState),
     item_on_holder("PC-A", 1, AnodeInput),
     item_on_holder("PC-B", 1, CathodeInput),
-    % using the actual actions instead of the underlying function directly
-    % lets see if this breaks once we model the side-effects of the action
-    load_input_material(AnodeInput, 1, "stacker", TempState, S1),
-    load_input_material(AnodeInput, 2, "stacker", S1, S2),
-    load_input_material(CathodeInput, 3, "stacker", S2, S3),
-    load_input_material(CathodeInput, 4, "stacker", S3, StateAfterLoad),
     BoM = [item("PC-A",1), item("PC-B",1)],
-    get_machine("stacker", StateAfterLoad, Stacker),
+
+    % actions, i.e. whatever manipulates state
+    % foldl weaves state changes through predicates whose last two arguments are
+    % OldState and NewState.
+    northcloud(InitialState),
+    foldl([X,Y,Z]>>call(X, Y, Z), [
+        update(warehouse(_), warehouse([item("PC-A",42), item("PC-B",42)])),
+        create_machine(EmptyStacker),
+        load_input_material(AnodeInput, 1, "stacker"),
+        load_input_material(AnodeInput, 2, "stacker"),
+        load_input_material(CathodeInput, 3, "stacker"),
+        load_input_material(CathodeInput, 4, "stacker"),
+        create_production_order("poid", [
+            "stacker"-"jobid"-["PC-A"-1, "PC-B"-1]
+            ]),
+        start_job("jobid")
+    ], InitialState, FinalState),
+
+    % assumptions, i.e. things to check after test setup
+    get_machine("stacker", FinalState, Stacker),
     Stacker = m(_, InputPositions, OutputPositions),
     assertion((
         forall(member(IP, InputPositions), (
@@ -206,10 +219,6 @@ test(material_interlock_test1) :-
             not(material_interlock(OP, BoM))
         ))
     )),
-    create_production_order("poid", [
-        "stacker"-"jobid"-["PC-A"-1, "PC-B"-1]
-        ], StateAfterLoad, StateWithJob),
-    start_job("jobid", StateWithJob, FinalState),
     assertion(not(is_interlocked("stacker", FinalState))).
 
 :- end_tests(material_interlock).

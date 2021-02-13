@@ -151,22 +151,30 @@ test(start_job_after_ending) :-
 :- begin_tests(cell_assembly).
 
 test(auto_start_job) :-
-    northcloud(EmptyState),
+    % init
     machine("stacker", Stacker),
-    create_machine(Stacker, EmptyState, S1),
     machine("hotpress", HotPress),
-    create_machine(HotPress, S1, StartState),
-    create_production_order("poid", [
-        "stacker"-"jobid1"-["PC-A"-1, "PC-B"-1],
-        "hotpress"-"jobid2"
-        ], StartState, StatePOCreated),
-    % start the stacker job
-    start_job("jobid1", StatePOCreated, StateJobStarted),
     event("jellyroll_stacked", "stacker", "jrid", StackedEvent),
-    publish_event(StackedEvent, StateJobStarted, StateStacked),
     event("jellyroll_pressed", "hotpress", "jrid", PressedEvent),
-    publish_event(PressedEvent, StateStacked, StatePressed),
-    HotPressJob = job("hotpress", "jobid2", "poid", _, started),
-    assertion(exists(StatePressed, HotPressJob)).
+
+    % actions
+    northcloud(InitialState),
+    foldl([X,Y,Z]>>call(X, Y, Z), [
+        create_machine(Stacker),
+        create_machine(HotPress),
+        create_production_order("poid", [
+            "stacker"-"jobid1"-["PC-A"-1, "PC-B"-1],
+            "hotpress"-"jobid2"
+            ]),
+        % start the stacker job, not the hotpress one
+        start_job("jobid1"),
+        publish_event(StackedEvent),
+        publish_event(PressedEvent)
+    ], InitialState, FinalState),
+
+    % assumptions
+    get_job("jobid2", FinalState, HotPressJob),
+    HotPressJob = job(_, _, _, _, State),
+    assertion(State = started).
 
 :- end_tests(cell_assembly).
