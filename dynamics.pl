@@ -108,12 +108,14 @@ auto_start_or_end(UnitID, _Target, OldState, NewState) :-
     Job = job(UnitID, _, POID, _, Status),
     exists(OldState, Job),
     (
-        Status = released,
+        Status = released
+    ->
         auto_start_job(UnitID, Job, OldState, NewState)
     ;
         Status = started,
         % todo check if target is last in job, then end it
         OldState = NewState
+    % TODO: what if Status = ended?
     ).
 
 auto_start_job(UnitID, Job, OldState, NewState) :-
