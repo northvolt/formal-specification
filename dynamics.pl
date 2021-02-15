@@ -18,10 +18,6 @@ create_production_order(ProdOrderID, Jobs, OldState, NewState) :-
     production_order(ProdOrderID, JobIDs, ProdOrder),
     create(ProdOrder, TempState, NewState).
 
-create_job(ProdOrderID, UnitID-JobID, OldState, NewState) :-
-    job(UnitID, JobID, ProdOrderID, Job),
-    create(Job, OldState, NewState).
-
 create_job(ProdOrderID, UnitID-JobID-BoM, OldState, NewState) :-
     job(UnitID, JobID, ProdOrderID, BoM, Job),
     create(Job, OldState, NewState).
@@ -58,8 +54,8 @@ job_status(ended).
 
 % consumeIndirect subtracts quantity from item amount in warehouse
 consumeIndirect(Item, Quantity, OldState, NewState) :-
-    select(warehouse(List), OldState, TempState),
-    select(item(Item,AmountInWarehouse), List, TempList),
+    selectchk(warehouse(List), OldState, TempState),
+    selectchk(item(Item,AmountInWarehouse), List, TempList),
     NewAmount #= AmountInWarehouse - Quantity,
     NewWarehouse = warehouse([item(Item,NewAmount)|TempList]),
     NewState = [NewWarehouse|TempState].
@@ -164,7 +160,7 @@ test(auto_start_job) :-
         create_machine(HotPress),
         create_production_order("poid", [
             "stacker"-"jobid1"-["PC-A"-1, "PC-B"-1],
-            "hotpress"-"jobid2"
+            "hotpress"-"jobid2"-[]
             ]),
         % start the stacker job, not the hotpress one
         start_job("jobid1")
