@@ -4,6 +4,8 @@
 
 :- use_module(library(clpfd)).
 
+:- ['tests.pl'].
+
 % models of part of our system. basic structure
 :- ['machines.pl'].
 :- ['events.pl'].

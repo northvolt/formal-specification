@@ -195,7 +195,7 @@ test(material_interlock_test2) :-
     % foldl weaves state changes through predicates whose last two arguments are
     % OldState and NewState.
     northcloud(InitialState),
-    foldl([X,Y,Z]>>call(X, Y, Z), [
+    actions([
         update(warehouse(_), warehouse([item("PC-A",42), item("PC-B",42)])),
         create_machine(EmptyStacker),
         load_input_material(AnodeInput, 1, "stacker"),

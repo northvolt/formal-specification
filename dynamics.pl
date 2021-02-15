@@ -159,7 +159,7 @@ test(auto_start_job) :-
 
     % actions
     northcloud(InitialState),
-    foldl([X,Y,Z]>>call(X, Y, Z), [
+    actions([
         create_machine(Stacker),
         create_machine(HotPress),
         create_production_order("poid", [
@@ -167,14 +167,20 @@ test(auto_start_job) :-
             "hotpress"-"jobid2"
             ]),
         % start the stacker job, not the hotpress one
-        start_job("jobid1"),
+        start_job("jobid1")
+    ], InitialState, StateStackerStarted),
+    % split these state changes since we want to refer back
+    % to the state immediately after we start the stacker job
+    actions([
         publish_event(StackedEvent),
         publish_event(PressedEvent)
-    ], InitialState, FinalState),
+    ], StateStackerStarted, FinalState),
 
     % assumptions
-    get_job("jobid2", FinalState, HotPressJob),
-    HotPressJob = job(_, _, _, _, State),
-    assertion(State = started).
+    changed_since(StateStackerStarted, FinalState, ChangedSet),
+    filter_entities(job, ChangedSet, Jobs),
+    % check that the only job that changed since creation is
+    % the job for the hotpress, which has started
+    assertion(Jobs = [job("hotpress",_,_,_,started)]).
 
 :- end_tests(cell_assembly).
