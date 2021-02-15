@@ -8,7 +8,11 @@ actions(List, OldState, NewState) :-
 
 % same as above but prints each state
 actions_debug(List, OldState, NewState) :-
-    foldl([X,Y,Z]>>(call(X, Y, Z), writeln(Z)), List, OldState, NewState).
+    foldl([X,Y,Z]>>(
+        call(X, Y, Z),
+        X =.. [C|_],
+        format("~w: ~w~n",[C,Z])
+    ), List, OldState, NewState).
 
 changed_since(OldState, NewState, ChangedSet) :-
     subtract(NewState, OldState, ChangedSet).
@@ -28,12 +32,21 @@ test(example_name) :-
     % they can repeat within a test
 
     % init declares the things we want to reason about
+    machine("stacker", EmptyStacker),
     event("sheet_cut", "stacker", "sheetid", Event),
-    % actions change state
+    % actions change state. They are applied in order.
+    % The state after application is the last argument to actions/3
     northcloud(InitialState),
-    actions([ publish_event(Event) ], InitialState, FinalState),
+    actions([
+        create_machine(EmptyStacker),
+        create_production_order("poid", [
+            "stacker"-"jobid"-[]
+            ]),
+        start_job("jobid"),
+        publish_event(Event)
+    ], InitialState, FinalState),
     % assertions check truth/validity
-    assertion(exists(FinalState, i("sheetid", "sheet"))).
+    assertion(exists(FinalState, i("sheetid", "sheet",_,_))).
 
 % groups need to be closed with end_tests/1
 :- end_tests(example_group).

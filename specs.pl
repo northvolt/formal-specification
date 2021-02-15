@@ -27,10 +27,11 @@
 % some default groups of data are initialised to make this a little simpler
 % warehouse is used in dynamics.pl and events in events.pl
 northcloud(InitialState) :-
-    InitialState = [warehouse([]), events([])].
+    InitialState = [warehouse([]), events([]), prs([])].
 
-% an identity is of the from i(Name)
-identity(Name, Type, i(Name, Type)).
+% an identity is of the from i(Name, Type, JobID, POID)
+% where JobID and POID form the IDRef
+identity(Name, Type, JobID, POID,  i(Name, Type, JobID, POID)).
 
 % create adds the identity/pr/job to our data model
 create(X, State, [X|State]).
@@ -57,5 +58,5 @@ exists(State, Identity) :-
     memberchk(Identity, State).
 
 find(Name, State, Identity) :-
-    Identity = i(Name, _),
+    Identity = i(Name, _, _, _),
     memberchk(Identity, State).

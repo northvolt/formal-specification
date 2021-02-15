@@ -4,6 +4,8 @@
 % because it does not care about the underlying data layer
 %%
 
+:- ['auto.pl'].
+
 % a productionorder is of the form prodorder(ProdOrderID, [JobIDs])
 production_order(ProdOrderID, Jobs, ProdOrder) :-
     string(ProdOrderID), is_list(Jobs),
@@ -60,6 +62,10 @@ consumeIndirect(Item, Quantity, OldState, NewState) :-
     NewWarehouse = warehouse([item(Item,NewAmount)|TempList]),
     NewState = [NewWarehouse|TempState].
 
+get_active_job(UnitID, State, Job) :-
+    Job = job(UnitID, _, _, _, started),
+    exists(State, Job).
+
 % MUTATIONS related to Dynamics D365
 % TODO: code needs JobID AND UnitID because we cant go from jobID to unitID in dynamics rn
 % This makes absolutely no sense and leads to horrible code
@@ -95,90 +101,28 @@ end_job(JobID, OldState, NewState) :-
     JobEnded = job(UnitID, JobID, ProdOrderID, BoM, ended),
     update(JobStarted, JobEnded, OldState, TempState),
     % TODO: UnitID = MachineName ?
-    update_interlock(UnitID, TempState, NewState).
+    update_interlock(UnitID, TempState, TempState2),
     % TODO: update material interlock ?
-
-get_active_job(UnitID, State, Job) :-
-    Job = job(UnitID, _, _, _, started),
-    exists(State, Job).
-
-auto_start_or_end(UnitID, _Target, OldState, NewState) :-
-    % TODO: get poid from target
-    POID = "poid",
-    Job = job(UnitID, _, POID, _, Status),
-    exists(OldState, Job),
-    (
-        Status = released
+    ( UnitID = "stacker"
     ->
-        auto_start_job(UnitID, Job, OldState, NewState)
+        update_end_marker(JobID, TempState2, NewState)
     ;
-        Status = started,
-        % todo check if target is last in job, then end it
-        OldState = NewState
-    % TODO: what if Status = ended?
+        % only do something for stacker
+        NewState = TempState2
     ).
-
-auto_start_job(UnitID, Job, OldState, NewState) :-
-    (
-        get_active_job(UnitID, OldState, CurrentJob),
-        Job \= CurrentJob
-    ->
-        CurrentJob = job(_, CJobID, _, _, _),
-        end_job(CJobID, OldState, TempState)
-    ;
-        % no changes need to be made
-        OldState = TempState
-    ),
-    Job = job(_, JobID, _, _, _),
-    start_job(JobID, TempState, NewState).
 
 :- begin_tests(job_mutations).
 
 test(start_job_after_ending) :-
-    northcloud(EmptyState),
-    machine("stacker", Stacker),
-    create_machine(Stacker, EmptyState, StartState),
-    job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
-    create(Job, StartState, StateJobCreated),
-    start_job("jobid", StateJobCreated, StateJobStarted),
-    end_job("jobid", StateJobStarted, StateJobEnded),
-    assertion(not(can_start_job("jobid", StateJobEnded))).
-
-:- end_tests(job_mutations).
-
-:- begin_tests(cell_assembly).
-
-test(auto_start_job) :-
-    % init
-    machine("stacker", Stacker),
-    machine("hotpress", HotPress),
-    event("jellyroll_stacked", "stacker", "jrid", StackedEvent),
-    event("jellyroll_pressed", "hotpress", "jrid", PressedEvent),
-
-    % actions
+    machine("coater", Coater),
+    job("coater", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
     northcloud(InitialState),
     actions([
-        create_machine(Stacker),
-        create_machine(HotPress),
-        create_production_order("poid", [
-            "stacker"-"jobid1"-["PC-A"-1, "PC-B"-1],
-            "hotpress"-"jobid2"-[]
-            ]),
-        % start the stacker job, not the hotpress one
-        start_job("jobid1")
-    ], InitialState, StateStackerStarted),
-    % split these state changes since we want to refer back
-    % to the state immediately after we start the stacker job
-    actions([
-        publish_event(StackedEvent),
-        publish_event(PressedEvent)
-    ], StateStackerStarted, FinalState),
+        create_machine(Coater),
+        create(Job),
+        start_job("jobid"),
+        end_job("jobid")
+    ], InitialState, FinalState),
+    assertion(not(can_start_job("jobid", FinalState))).
 
-    % assumptions
-    changed_since(StateStackerStarted, FinalState, ChangedSet),
-    filter_entities(job, ChangedSet, Jobs),
-    % check that the only job that changed since creation is
-    % the job for the hotpress, which has started
-    assertion(Jobs = [job("hotpress",_,_,_,started)]).
-
-:- end_tests(cell_assembly).
+:- end_tests(job_mutations).
