@@ -9,6 +9,11 @@ update_interlock(Name, OldState, NewState) :-
     ).
     % TODO: send interlock changed requested event
 
+% this is a mutation that overrides interlock, allowing machine to run
+% _despite_ any interlock conditions failing. Emergency case
+force_release_interlock(Name, OldState, NewState) :-
+    update(machine_config(Name, _), machine_config(Name, false), OldState, NewState).
+
 % different machines have different conditions to check
 % each condition is permissive: if it succeeds, interlock should _not_ be set
 % this predicate succeeding means interlock should _not_ be set
@@ -108,8 +113,7 @@ test(release_interlock) :-
     create_machine(Stacker, State, S1),
     job("stacker", "jobid", "poid", ["PC-A"-1, "PC-B"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, S3),
-    update_interlock("stacker", S3, FinalState),
+    start_job("jobid", S2, FinalState),
     assertion(not(is_interlocked("stacker", FinalState))).
 
 test(cannot_release_interlock_no_job) :-
@@ -119,8 +123,7 @@ test(cannot_release_interlock_no_job) :-
     item_on_holder("PC-B", 1, CathodeInput),
     load_holder_in_inputposition(AnodeInput, 1, EmptyStacker, NewStacker),
     load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
-    create_machine(Stacker, State, S1),
-    update_interlock("stacker", S1, FinalState),
+    create_machine(Stacker, State, FinalState),
     assertion(is_interlocked("stacker", FinalState)).
 
 test(cannot_release_interlock_material_mismatch) :-
@@ -131,8 +134,7 @@ test(cannot_release_interlock_material_mismatch) :-
     create_machine(NewPresser, State, S1),
     job("presser", "jobid", "poid", ["PC-B"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, S3),
-    update_interlock("presser", S3, FinalState),
+    start_job("jobid", S2, FinalState),
     assertion(is_interlocked("presser", FinalState)).
 
 test(cannot_release_interlock_incorrect_output_position) :-
@@ -143,8 +145,7 @@ test(cannot_release_interlock_incorrect_output_position) :-
     create_machine(Presser, State, S1),
     job("presser", "jobid", "poid", ["ItemName"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, S3),
-    update_interlock("presser", S3, FinalState),
+    start_job("jobid", S2, FinalState),
     assertion(is_interlocked("presser", FinalState)).
     
 test(cannot_release_interlock_loaded_on_inactive) :-
@@ -155,9 +156,19 @@ test(cannot_release_interlock_loaded_on_inactive) :-
     create_machine(NewNotcher, State, S1),
     job("notcher", "jobid", "poid", ["PC-A"-1], Job),
     create(Job, S1, S2),
-    start_job("jobid", S2, S3),
-    update_interlock("notcher", S3, FinalState),
+    start_job("jobid", S2, FinalState),
     assertion(is_interlocked("notcher", FinalState)).
+
+test(force_release_interlock) :-
+    northcloud(State),
+    machine("stacker", EmptyStacker),
+    item_on_holder("PC-A", 1, AnodeInput),
+    item_on_holder("PC-B", 1, CathodeInput),
+    load_holder_in_inputposition(AnodeInput, 1, EmptyStacker, NewStacker),
+    load_holder_in_inputposition(CathodeInput, 3, NewStacker, Stacker),
+    create_machine(Stacker, State, S1),
+    force_release_interlock("stacker", S1, FinalState),
+    assertion(not(is_interlocked("stacker", FinalState))).
 
 :- end_tests(interlock).
 
