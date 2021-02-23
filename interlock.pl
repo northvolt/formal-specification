@@ -42,7 +42,7 @@ mbom(Machine, State) :-
             Quantity #= 0
         ;
             Quantity #> 0,
-            memberchk(in(ItemHolder, true), InputPositions),
+            member(iip(ItemHolder, true), InputPositions),
             not(itemholder_is_empty(ItemHolder)),
             item_on_holder(JM, _, ItemHolder)
     )).
